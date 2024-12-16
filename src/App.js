@@ -5,6 +5,7 @@ import './App.css';
 function App() {
   const [billTotal, setBillTotal] = useState(null);
   const [tipPercentage, setTipPercentage] = useState(15);
+  const [people, setPeople] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const videoRef = useRef(null);
   const photoRef = useRef(null);
@@ -42,10 +43,8 @@ function App() {
       await worker.initialize('eng');
       const { data: { text } } = await worker.recognize(imageData);
       
-      // Extract total amount using regex
       const amounts = text.match(/\$?\d+\.\d{2}/g);
       if (amounts && amounts.length > 0) {
-        // Usually the last amount is the total
         const total = parseFloat(amounts[amounts.length - 1].replace('$', ''));
         setBillTotal(total);
       }
@@ -58,20 +57,27 @@ function App() {
   };
 
   const calculateTip = () => {
-    if (!billTotal) return { tip: 0, total: 0 };
+    if (!billTotal) return { tip: 0, total: 0, perPerson: 0 };
     const tip = (billTotal * tipPercentage) / 100;
     const total = billTotal + tip;
+    const perPerson = total / people;
     return {
       tip: tip.toFixed(2),
-      total: total.toFixed(2)
+      total: total.toFixed(2),
+      perPerson: perPerson.toFixed(2)
     };
   };
 
   const results = calculateTip();
 
+  const commonTipPercentages = [15, 18, 20, 25];
+
   return (
     <div className="App">
-      <h1>Receipt Scanner & Tip Calculator</h1>
+      <div className="app-header">
+        <h1>Snap & Split</h1>
+        <p className="subtitle">Scan receipt • Calculate tip • Split bill</p>
+      </div>
       
       <div className="camera-section">
         <video 
@@ -83,38 +89,96 @@ function App() {
         <canvas ref={photoRef} style={{ display: 'none' }} />
         
         {!billTotal && (
-          <>
-            <button onClick={startCamera}>Start Camera</button>
-            <button onClick={captureReceipt}>Capture Receipt</button>
-          </>
+          <div className="camera-controls">
+            <button className="primary-btn" onClick={startCamera}>
+              <span className="camera-icon">📷</span> Open Camera
+            </button>
+            <button className="capture-btn" onClick={captureReceipt}>
+              Capture Receipt
+            </button>
+          </div>
         )}
       </div>
 
-      {isProcessing && <div className="processing">Processing receipt...</div>}
+      {isProcessing && (
+        <div className="processing-overlay">
+          <div className="spinner"></div>
+          <p>Processing receipt...</p>
+        </div>
+      )}
 
       {billTotal && (
         <div className="calculator">
           <div className="bill-display">
-            <h2>Bill Total: ${billTotal.toFixed(2)}</h2>
+            <h2>Bill Total</h2>
+            <div className="amount">${billTotal.toFixed(2)}</div>
           </div>
 
-          <div className="tip-slider">
-            <label>Tip Percentage: {tipPercentage}%</label>
-            <input 
-              type="range"
-              min="0"
-              max="30"
-              value={tipPercentage}
-              onChange={(e) => setTipPercentage(parseInt(e.target.value))}
-            />
+          <div className="tip-section">
+            <h3>Select Tip %</h3>
+            <div className="quick-tips">
+              {commonTipPercentages.map(percent => (
+                <button 
+                  key={percent}
+                  className={`tip-btn ${tipPercentage === percent ? 'active' : ''}`}
+                  onClick={() => setTipPercentage(percent)}
+                >
+                  {percent}%
+                </button>
+              ))}
+            </div>
+            
+            <div className="tip-slider">
+              <input 
+                type="range"
+                min="0"
+                max="50"
+                value={tipPercentage}
+                onChange={(e) => setTipPercentage(parseInt(e.target.value))}
+              />
+              <div className="custom-tip">
+                Custom: {tipPercentage}%
+              </div>
+            </div>
+          </div>
+
+          <div className="split-section">
+            <h3>Split Between</h3>
+            <div className="people-control">
+              <button 
+                className="circle-btn"
+                onClick={() => setPeople(Math.max(1, people - 1))}
+              >
+                -
+              </button>
+              <span className="people-count">{people} {people === 1 ? 'person' : 'people'}</span>
+              <button 
+                className="circle-btn"
+                onClick={() => setPeople(people + 1)}
+              >
+                +
+              </button>
+            </div>
           </div>
 
           <div className="results">
-            <h3>Tip Amount: ${results.tip}</h3>
-            <h3>Total with Tip: ${results.total}</h3>
+            <div className="result-row">
+              <span>Tip Amount</span>
+              <span className="amount">${results.tip}</span>
+            </div>
+            <div className="result-row">
+              <span>Total with Tip</span>
+              <span className="amount">${results.total}</span>
+            </div>
+            <div className="result-row highlight">
+              <span>Per Person</span>
+              <span className="amount">${results.perPerson}</span>
+            </div>
           </div>
 
-          <button onClick={() => setBillTotal(null)}>Scan New Receipt</button>
+          <button className="secondary-btn" onClick={() => setBillTotal(null)}>
+            Scan New Receipt
+          </button>
         </div>
       )}
     </div>
